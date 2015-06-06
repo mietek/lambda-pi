@@ -78,6 +78,12 @@ boundfree :: Int -> Name -> TermI
 boundfree i (Quote k) = Bound (i - k - 1)
 boundfree i x         = Free x
 
+instance Show Value where
+  show v = show (quote0 v)
+
+instance Eq Value where
+  v == v' = quote0 v == quote0 v'
+
 
 {-  Evaluation
     ==========
@@ -216,7 +222,7 @@ typeI i c (e :@: e')
 typeC :: Int -> Context -> TermC -> Type -> Result ()
 typeC i c (Inf e) v
   = do v' <- typeI i c e
-       unless (quote0 v == quote0 v') (throwError "type mismatch")
+       unless (v == v') (throwError "type mismatch")
 typeC i c (Lam e) (VPi t t')
   = typeC (i + 1) ((Local i, t) : c)
           (substC 0 (Free (Local i)) e) (t' (vfree (Local i)))
@@ -268,14 +274,14 @@ term2 = Ann const' (Inf (Pi (Inf (Pi (free "b") (free "b")))
         :@: id' :@: free "y"
 
 
--- >> quote0 (evalI term1 [])
+-- >> evalI term1 []
 -- Inf (Free (Global "y"))
 
--- >> quote0 (evalI term2 [])
+-- >> evalI term2 []
 -- Lam (Inf (Bound 0))
 
--- >> let Right t = typeI0 env1 term1 in quote0 t
--- Inf (Free (Global "a"))
+-- >> typeI0 env1 term1
+-- Right (Inf (Free (Global "a")))
 
--- >> let Right t = typeI0 env2 term2 in quote0 t
--- Inf (Pi (Inf (Free (Global "b"))) (Inf (Free (Global "b"))))
+-- >> typeI0 env2 term2
+-- Right Inf (Pi (Inf (Free (Global "b"))) (Inf (Free (Global "b"))))

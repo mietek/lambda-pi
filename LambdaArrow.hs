@@ -76,6 +76,12 @@ boundfree :: Int -> Name -> TermI
 boundfree i (Quote k) = Bound (i - k - 1)
 boundfree i x         = Free x
 
+instance Show Value where
+  show v = show (quote0 v)
+
+instance Eq Value where
+  v == v' = quote0 v == quote0 v'
+
 
 {-  Evaluation
     ==========
@@ -268,14 +274,14 @@ term2 = Ann const' (Fun (Fun (tfree "b") (tfree "b"))
         :@: id' :@: free "y"
 
 
--- >> quote0 (evalI term1 [])
+-- >> evalI term1 []
 -- Inf (Free (Global "y"))
 
--- >> quote0 (evalI term2 [])
+-- >> evalI term2 []
 -- Lam (Inf (Bound 0))
 
--- >> let Right t = typeI0 env1 term1 in t
--- TFree (Global "a")
+-- >> typeI0 env1 term1
+-- Right (TFree (Global "a"))
 
--- >> let Right t = typeI0 env2 term2 in t
--- Fun (TFree (Global "b")) (TFree (Global "b"))
+-- >> typeI0 env2 term2
+-- Right (Fun (TFree (Global "b")) (TFree (Global "b")))
