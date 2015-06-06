@@ -57,6 +57,28 @@ vfree :: Name -> Value
 vfree n = VNeutral (NFree n)
 
 
+{-  Quotation
+    =========
+-}
+
+quote0 :: Value -> TermC
+quote0 = quote 0
+
+quote :: Int -> Value -> TermC
+quote i (VLam f)     = Lam (quote (i + 1) (f (vfree (Quote i))))
+quote i VStar        = Inf Star
+quote i (VPi v f)    = Inf (Pi (quote i v) (quote (i + 1) (f (vfree (Quote i)))))
+quote i (VNeutral n) = Inf (neutralQuote i n)
+
+neutralQuote :: Int -> Neutral -> TermI
+neutralQuote i (NFree x)  = boundfree i x
+neutralQuote i (NApp n v) = neutralQuote i n :@: quote i v
+
+boundfree :: Int -> Name -> TermI
+boundfree i (Quote k) = Bound (i - k - 1)
+boundfree i x         = Free x
+
+
 {-  Evaluation
     ==========
 
@@ -212,28 +234,6 @@ substI i r (e :@: e') = substI i r e :@: substC i r e'
 substC :: Int -> TermI -> TermC -> TermC
 substC i r (Inf e) = Inf (substI i r e)
 substC i r (Lam e) = Lam (substC (i + 1) r e)
-
-
-{-  Quotation
-    =========
--}
-
-quote0 :: Value -> TermC
-quote0 = quote 0
-
-quote :: Int -> Value -> TermC
-quote i (VLam f)     = Lam (quote (i + 1) (f (vfree (Quote i))))
-quote i VStar        = Inf Star
-quote i (VPi v f)    = Inf (Pi (quote i v) (quote (i + 1) (f (vfree (Quote i)))))
-quote i (VNeutral n) = Inf (neutralQuote i n)
-
-neutralQuote :: Int -> Neutral -> TermI
-neutralQuote i (NFree x)  = boundfree i x
-neutralQuote i (NApp n v) = neutralQuote i n :@: quote i v
-
-boundfree :: Int -> Name -> TermI
-boundfree i (Quote k) = Bound (i - k - 1)
-boundfree i x         = Free x
 
 
 {-  Examples
