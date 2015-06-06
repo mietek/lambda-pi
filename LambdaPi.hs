@@ -66,7 +66,7 @@ quote0 = quote 0
 
 quote :: Int -> Value -> TermC
 quote i (VLam f)     = Lam (quote (i + 1) (f (vfree (Quote i))))
-quote i VStar        = Inf Star
+quote _ VStar        = Inf Star
 quote i (VPi v f)    = Inf (Pi (quote i v) (quote (i + 1) (f (vfree (Quote i)))))
 quote i (VNeutral n) = Inf (neutralQuote i n)
 
@@ -76,7 +76,7 @@ neutralQuote i (NApp n v) = neutralQuote i n :@: quote i v
 
 boundfree :: Int -> Name -> TermI
 boundfree i (Quote k) = Bound (i - k - 1)
-boundfree i x         = Free x
+boundfree _ x         = Free x
 
 instance Show Value where
   show v = show (quote0 v)
@@ -120,9 +120,9 @@ type Env = [Value]
 
 evalI :: TermI -> Env -> Value
 evalI (Ann e _)  d = evalC e d
-evalI Star       d = VStar
+evalI Star       _ = VStar
 evalI (Pi t t')  d = VPi (evalC t d) (\x -> evalC t' (x : d))
-evalI (Free x)   d = vfree x
+evalI (Free x)   _ = vfree x
 evalI (Bound i)  d = d !! i
 evalI (e :@: e') d = vapp (evalI e d) (evalC e' d)
 
@@ -200,7 +200,7 @@ typeI i c (Ann e r)
        let t = evalC0 r
        typeC i c e t
        return t
-typeI i c Star
+typeI _ _ Star
   = return VStar
 typeI i c (Pi r r')
   = do typeC i c r VStar
@@ -208,7 +208,9 @@ typeI i c (Pi r r')
        typeC (i + 1) ((Local i, t) : c)
              (substC 0 (Free (Local i)) r') VStar
        return VStar
-typeI i c (Free x)
+typeI _ _ (Bound _)
+  = throwError "impossible"
+typeI _ c (Free x)
   = case lookup x c of
       Just t  -> return t
       Nothing -> throwError "unknown identifier"
@@ -226,15 +228,15 @@ typeC i c (Inf e) v
 typeC i c (Lam e) (VPi t t')
   = typeC (i + 1) ((Local i, t) : c)
           (substC 0 (Free (Local i)) e) (t' (vfree (Local i)))
-typeC i c _ _
+typeC _ _ _ _
   = throwError "type mismatch"
 
 substI :: Int -> TermI -> TermI -> TermI
 substI i r (Ann e t)  = Ann (substC i r e) t
-substI i r Star       = Star
+substI _ _ Star       = Star
 substI i r (Pi t t')  = Pi (substC i r t) (substC (i + 1) r t')
 substI i r (Bound j)  = if i == j then r else Bound j
-substI i r (Free y)   = Free y
+substI _ _ (Free y)   = Free y
 substI i r (e :@: e') = substI i r e :@: substC i r e'
 
 substC :: Int -> TermI -> TermC -> TermC
@@ -273,15 +275,9 @@ term2 = Ann const' (Inf (Pi (Inf (Pi (free "b") (free "b")))
                                      (Inf (Pi (free "b") (free "b")))))))
         :@: id' :@: free "y"
 
-
--- >> evalI term1 []
--- Inf (Free (Global "y"))
-
--- >> evalI term2 []
--- Lam (Inf (Bound 0))
-
--- >> typeI0 env1 term1
--- Right (Inf (Free (Global "a")))
-
--- >> typeI0 env2 term2
--- Right Inf (Pi (Inf (Free (Global "b"))) (Inf (Free (Global "b"))))
+main :: IO ()
+main = do
+  print $ evalI term1 []
+  print $ evalI term2 []
+  print $ typeI0 env1 term1
+  print $ typeI0 env2 term2
